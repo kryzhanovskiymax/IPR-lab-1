@@ -9,7 +9,6 @@ from PyQt5.QtWidgets import QGridLayout, QLineEdit, QDialog
 from PyQt5.QtCore import QCoreApplication
 from skimage import measure
 from skimage.color import rgb2gray
-
 plugin_path = QCoreApplication.libraryPaths()[0]
 
 
@@ -94,6 +93,12 @@ class PhotoTransformApp(QMainWindow):
         self.closing_kernel_button = QPushButton('Установить ядро', self)
         self.closing_kernel_button.clicked.connect(self.set_closing_kernel)
 
+        self.cusrtom_filter_button = QPushButton('Custom Filter', self)
+        self.cusrtom_filter_button.clicked.connect(self.custom_filter_image)
+        self.cusrtom_filter_kernel_button = QPushButton('Set Kernel', self)
+        self.cusrtom_filter_kernel_button.clicked.connect(
+            self.set_custom_filter_kernel)
+
         self.undo_button = QPushButton('Отменить', self)
         self.undo_button.clicked.connect(self.undo_action)
 
@@ -123,16 +128,17 @@ class PhotoTransformApp(QMainWindow):
         layout.addWidget(self.opening_kernel_button, 4, 1)
         layout.addWidget(self.closing_button, 5, 0)
         layout.addWidget(self.closing_kernel_button, 5, 1)
-        layout.addWidget(self.min_filter_button, 6, 0)
-        layout.addWidget(self.min_filter_kernel_button, 6, 1)
-        layout.addWidget(self.undo_button, 6, 0, 1, 2)
-        layout.addWidget(self.reset_button, 7, 0, 1, 2)
-        layout.addWidget(self.count_airplanes, 8, 0, 1, 2)
+        layout.addWidget(self.cusrtom_filter_button, 6, 0)
+        layout.addWidget(self.cusrtom_filter_kernel_button, 6, 1)
+        layout.addWidget(self.undo_button, 7, 0, 1, 2)
+        layout.addWidget(self.reset_button, 8, 0, 1, 2)
+        layout.addWidget(self.count_airplanes, 9, 0, 1, 2)
 
         self.erode_kernel = np.ones((5, 5), np.uint8)
         self.dilate_kernel = np.ones((5, 5), np.uint8)
         self.opening_kernel = np.ones((5, 5), np.uint8)
         self.closing_kernel = np.ones((5, 5), np.uint8)
+        self.custom_filter_kernel = np.ones((3, 3), np.uint8)
 
         container = QWidget()
         container.setLayout(layout)
@@ -212,6 +218,19 @@ class PhotoTransformApp(QMainWindow):
         if dialog.exec_():
             size, elements = dialog.get_kernel_data()
             self.closing_kernel = np.array(elements).reshape(size, size)
+
+    def custom_filter_image(self):
+        if self.loaded_image is not None:
+            self.history.append(self.loaded_image.copy())
+            kernel = self.custom_filter_kernel
+            custom_filtered_image = cv2.filter2D(self.loaded_image, -1, kernel)
+            self.display_image(custom_filtered_image)
+
+    def set_custom_filter_kernel(self):
+        dialog = SetKernelDialog()
+        if dialog.exec_():
+            size, elements = dialog.get_kernel_data()
+            self.custom_filter_kernel = np.array(elements).reshape(size, size)
 
     def undo_action(self):
         if self.history:
