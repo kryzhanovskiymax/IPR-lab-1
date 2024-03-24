@@ -7,9 +7,26 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtWidgets import QGridLayout, QLineEdit, QDialog
 from PyQt5.QtCore import QCoreApplication
-from skimage import measure
+from PyQt5.QtCore import Qt
 from skimage.color import rgb2gray
 plugin_path = QCoreApplication.libraryPaths()[0]
+
+
+def count_planes(image):
+    image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, np.ones((6, 6), np.uint8))
+    image = cv2.morphologyEx(image, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    b, _, _ = cv2.split(image)
+    _, mask = cv2.threshold(b, 195, 255, cv2.THRESH_BINARY)
+    result = cv2.bitwise_and(image, image, mask=mask)
+    countours, _ = cv2.findContours(mask,
+                                    cv2.RETR_EXTERNAL,
+                                    cv2.CHAIN_APPROX_SIMPLE)
+    count = 0
+    for countour in countours:
+        if cv2.contourArea(countour) > 20:
+            count += 1
+            cv2.drawContours(result, [countour], -1, (0, 255, 0), 2)
+    return count, result
 
 
 class SetKernelDialog(QDialog):
@@ -17,45 +34,39 @@ class SetKernelDialog(QDialog):
         super().__init__()
         self.setWindowTitle('Set Kernel')
 
-        self.layout = QGridLayout()
+        # Создание макета для диалогового окна
+        layout = QGridLayout()
 
+        # Метка и поле ввода для размера ядра
         self.kernel_size_label = QLabel('Kernel Size:', self)
-        self.layout.addWidget(self.kernel_size_label, 0, 0)
+        layout.addWidget(self.kernel_size_label, 0, 0)
         self.kernel_size_input = QLineEdit(self)
-        self.kernel_size_input.textChanged.connect(
-            self.create_kernel_elements_input)
-        self.layout.addWidget(self.kernel_size_input, 0, 1)
+        layout.addWidget(self.kernel_size_input, 0, 1)
 
+        # Метка и поле ввода для ядра
         self.kernel_elements_label = QLabel('Kernel Elements:', self)
-        self.layout.addWidget(self.kernel_elements_label, 1, 0)
+        layout.addWidget(self.kernel_elements_label, 1, 0)
+        self.kernel_elements_input = QLineEdit(self)
+        layout.addWidget(self.kernel_elements_input, 1, 1)
 
-        self.setLayout(self.layout)
-
-    def create_kernel_elements_input(self):
-        size = int(self.kernel_size_input.text())
-        self.elements_inputs = []
-
-        # Clear layout before recreating elements
-        for i in reversed(range(self.layout.count())):
-            widget = self.layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
-
-        for i in range(size):
-            for j in range(size):
-                input_field = QLineEdit(self)
-                input_field.setText('0')
-                self.elements_inputs.append(input_field)
-                self.layout.addWidget(input_field, i + 2, j + 1)
-
+        # Кнопка "OK" для закрытия диалогового окна
         self.ok_button = QPushButton('OK', self)
-        self.ok_button.clicked.connect(self.return_kernel_data)
-        self.layout.addWidget(self.ok_button, size + 2, size)
+        self.ok_button.clicked.connect(self.accept)
+        layout.addWidget(self.ok_button, 2, 1)
 
-    def return_kernel_data(self):
+        # Установка макета для диалогового окна
+        self.setLayout(layout)
+
+    def get_kernel_data(self):
+        # Получение данных о размере ядра и элементах ядра
         size = int(self.kernel_size_input.text())
-        elements = [int(input_field.text())
-                    for input_field in self.elements_inputs]
+        elements = list(map(float, self.kernel_elements_input.text().split()))
+
+        if len(elements) > size * size:
+            elements = elements[:size * size]
+        elif len(elements) < size * size:
+            elements += [1] * (size * size - len(elements))
+
         return size, elements
 
 
@@ -64,10 +75,10 @@ class PhotoTransformApp(QMainWindow):
         super().__init__()
 
         self.setWindowTitle('Photo Transformation App')
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 1200, 800)
 
         self.image_label = QLabel(self)
-        self.image_label.setScaledContents(True)
+        self.image_label.setScaledContents(False)
 
         self.load_button = QPushButton('Load Image', self)
         self.load_button.clicked.connect(self.load_image)
@@ -155,6 +166,7 @@ class PhotoTransformApp(QMainWindow):
 
         if file_dialog.exec_():
             file_path = file_dialog.selectedFiles()[0]
+            self.image_file = file_path
             self.loaded_image = cv2.imread(file_path, cv2.IMREAD_COLOR)
             self.display_image(self.loaded_image)
             self.history = []
@@ -165,6 +177,9 @@ class PhotoTransformApp(QMainWindow):
         q_image = QImage(image.data, width, height,
                          bytes_per_line, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap.fromImage(q_image)
+        pixmap = pixmap.scaled(width,
+                               height,
+                               aspectRatioMode=Qt.KeepAspectRatio)
         self.image_label.setPixmap(pixmap)
 
     def erode_image(self):
@@ -245,20 +260,20 @@ class PhotoTransformApp(QMainWindow):
 
     def count_airplanes_skimage(self):
         if self.loaded_image is not None:
-            gray_image = rgb2gray(self.loaded_image)
-            threshold = 0.5
-            binary_image = gray_image > threshold
-            _, num_airplanes = measure.label(binary_image, return_num=True)
-            self.statusBar().showMessage(
-                f'Number of airplanes: {num_airplanes - 1}')
+            count, result = count_planes(self.loaded_image)
+            self.display_image(result)
+            self.statusBar().showMessage(f'Number of airplanes: {count}')
         else:
             self.statusBar().showMessage('No image is loaded')
 
 
 if __name__ == '__main__':
+    print(plugin_path)
     os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
     os.environ['QT_PLUGIN_PATH'] = plugin_path
+    print("Initilizing app...")
     app = QApplication(sys.argv)
+    print("App initialized")
     window = PhotoTransformApp()
     window.show()
     sys.exit(app.exec_())
