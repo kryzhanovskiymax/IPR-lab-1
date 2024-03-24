@@ -8,6 +8,8 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtWidgets import QGridLayout, QLineEdit, QDialog
 from PyQt5.QtCore import QCoreApplication
 from PyQt5.QtCore import Qt
+
+
 plugin_path = QCoreApplication.libraryPaths()[0]
 
 
