@@ -105,10 +105,10 @@ class PhotoTransformApp(QMainWindow):
         self.closing_kernel_button = QPushButton('Установить ядро', self)
         self.closing_kernel_button.clicked.connect(self.set_closing_kernel)
 
-        self.cusrtom_filter_button = QPushButton('Custom Filter', self)
-        self.cusrtom_filter_button.clicked.connect(self.custom_filter_image)
-        self.cusrtom_filter_kernel_button = QPushButton('Set Kernel', self)
-        self.cusrtom_filter_kernel_button.clicked.connect(
+        self.custom_filter_button = QPushButton('Custom Filter', self)
+        self.custom_filter_button.clicked.connect(self.custom_filter_image)
+        self.custom_filter_kernel_button = QPushButton('Set Kernel', self)
+        self.custom_filter_kernel_button.clicked.connect(
             self.set_custom_filter_kernel)
 
         self.undo_button = QPushButton('Отменить', self)
@@ -140,8 +140,8 @@ class PhotoTransformApp(QMainWindow):
         layout.addWidget(self.opening_kernel_button, 4, 1)
         layout.addWidget(self.closing_button, 5, 0)
         layout.addWidget(self.closing_kernel_button, 5, 1)
-        layout.addWidget(self.cusrtom_filter_button, 6, 0)
-        layout.addWidget(self.cusrtom_filter_kernel_button, 6, 1)
+        layout.addWidget(self.custom_filter_button, 6, 0)
+        layout.addWidget(self.custom_filter_kernel_button, 6, 1)
         layout.addWidget(self.undo_button, 7, 0, 1, 2)
         layout.addWidget(self.reset_button, 8, 0, 1, 2)
         layout.addWidget(self.count_airplanes, 9, 0, 1, 2)
