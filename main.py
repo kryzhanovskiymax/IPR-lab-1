@@ -24,7 +24,7 @@ def count_planes(image):
                                     cv2.CHAIN_APPROX_SIMPLE)
     count = 0
     for countour in countours:
-        if cv2.contourArea(countour) > 20:
+        if cv2.contourArea(countour) >= 15:
             count += 1
             cv2.drawContours(result, [countour], -1, (0, 255, 0), 2)
     return count, result
@@ -60,6 +60,11 @@ class SetKernelDialog(QDialog):
 
     def get_kernel_data(self):
         # Получение данных о размере ядра и элементах ядра
+        if not self.kernel_size_input.text().isdigit():
+            size = 3
+            elements = [1] * 9
+            return size, elements
+
         size = int(self.kernel_size_input.text())
         elements = list(map(float, self.kernel_elements_input.text().split()))
 
@@ -85,31 +90,35 @@ class PhotoTransformApp(QMainWindow):
         self.load_button.clicked.connect(self.load_image)
         self.load_button.setStyleSheet('background-color: blue; color: white;')
 
-        self.erode_button = QPushButton('Erode', self)
+        self.erode_button = QPushButton('Эрозия', self)
         self.erode_button.clicked.connect(self.erode_image)
         self.erode_kernel_button = QPushButton('Установить ядро', self)
         self.erode_kernel_button.clicked.connect(self.set_erode_kernel)
 
-        self.dilate_button = QPushButton('Dilate', self)
+        self.dilate_button = QPushButton('Дилатация', self)
         self.dilate_button.clicked.connect(self.dilate_image)
         self.dilate_kernel_button = QPushButton('Установить ядро', self)
         self.dilate_kernel_button.clicked.connect(self.set_dilate_kernel)
 
-        self.opening_button = QPushButton('Opening', self)
+        self.opening_button = QPushButton('Открытие', self)
         self.opening_button.clicked.connect(self.opening_image)
         self.opening_kernel_button = QPushButton('Установить ядро', self)
         self.opening_kernel_button.clicked.connect(self.set_opening_kernel)
 
-        self.closing_button = QPushButton('Closing', self)
+        self.closing_button = QPushButton('Закрытие', self)
         self.closing_button.clicked.connect(self.closing_image)
         self.closing_kernel_button = QPushButton('Установить ядро', self)
         self.closing_kernel_button.clicked.connect(self.set_closing_kernel)
 
-        self.custom_filter_button = QPushButton('Custom Filter', self)
+        self.custom_filter_button = QPushButton(
+            'Пользовательский фильтр', self)
         self.custom_filter_button.clicked.connect(self.custom_filter_image)
-        self.custom_filter_kernel_button = QPushButton('Set Kernel', self)
+        self.custom_filter_kernel_button = QPushButton('Установить ядро', self)
         self.custom_filter_kernel_button.clicked.connect(
             self.set_custom_filter_kernel)
+
+        self.binarization_button = QPushButton('Бинаризация', self)
+        self.binarization_button.clicked.connect(self.binarize_image)
 
         self.undo_button = QPushButton('Отменить', self)
         self.undo_button.clicked.connect(self.undo_action)
@@ -142,9 +151,10 @@ class PhotoTransformApp(QMainWindow):
         layout.addWidget(self.closing_kernel_button, 5, 1)
         layout.addWidget(self.custom_filter_button, 6, 0)
         layout.addWidget(self.custom_filter_kernel_button, 6, 1)
-        layout.addWidget(self.undo_button, 7, 0, 1, 2)
-        layout.addWidget(self.reset_button, 8, 0, 1, 2)
-        layout.addWidget(self.count_airplanes, 9, 0, 1, 2)
+        layout.addWidget(self.binarization_button, 7, 0, 1, 2)
+        layout.addWidget(self.undo_button, 8, 0, 1, 2)
+        layout.addWidget(self.reset_button, 9, 0, 1, 2)
+        layout.addWidget(self.count_airplanes, 10, 0, 1, 2)
 
         self.erode_kernel = np.ones((5, 5), np.uint8)
         self.dilate_kernel = np.ones((5, 5), np.uint8)
@@ -171,6 +181,17 @@ class PhotoTransformApp(QMainWindow):
             self.loaded_image = cv2.imread(file_path, cv2.IMREAD_COLOR)
             self.display_image(self.loaded_image)
             self.history = []
+
+    def display_binary_image(self, image):
+        height, width = image.shape
+        bytes_per_line = width
+        q_image = QImage(image.data, width, height,
+                         bytes_per_line, QImage.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(q_image)
+        pixmap = pixmap.scaled(width,
+                               height,
+                               aspectRatioMode=Qt.KeepAspectRatio)
+        self.image_label.setPixmap(pixmap)
 
     def display_image(self, image):
         height, width, _ = image.shape
@@ -266,6 +287,14 @@ class PhotoTransformApp(QMainWindow):
             self.statusBar().showMessage(f'Number of airplanes: {count}')
         else:
             self.statusBar().showMessage('No image is loaded')
+
+    def binarize_image(self):
+        if self.loaded_image is not None:
+            self.history.append(self.loaded_image.copy())
+            gray_image = cv2.cvtColor(self.loaded_image, cv2.COLOR_BGR2GRAY)
+            _, binarized_image = cv2.threshold(
+                gray_image, 127, 255, cv2.THRESH_BINARY)
+            self.display_binary_image(binarized_image)
 
 
 if __name__ == '__main__':
